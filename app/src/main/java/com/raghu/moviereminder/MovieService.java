@@ -190,6 +190,7 @@ public class MovieService extends Service {
             Intent intent = new Intent(MovieService.this, MainActivity.class);
             ArrayList<String> venueList = new ArrayList<>(venueSet);
             intent.putExtra("theatreList", venueList);
+
             PendingIntent pendingIntent = PendingIntent.getActivity(MovieService.this, 0, intent, 0);
             SimpleDateFormat sdf = new SimpleDateFormat("HH:mm::ss", Locale.ENGLISH);
             mBuilder.setContentIntent(pendingIntent)
@@ -199,11 +200,20 @@ public class MovieService extends Service {
         private void playNotificationSound() {
             MediaPlayer mediaPlayer = MediaPlayer.create(MovieService.this, R.raw.notify);
             try {
-                AudioManager audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+                final AudioManager audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+                final int currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
                         audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
                         AudioManager.FLAG_PLAY_SOUND);
-
+                Log.e(TAG, "Current volume: " + currentVolume);
+                mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                    @Override
+                    public void onCompletion(MediaPlayer mp) {
+                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, AudioManager.FLAG_PLAY_SOUND);
+                        executor.getQueue().clear();
+                        stopSelf();
+                    }
+                });
                 mediaPlayer.start();
             } catch (IllegalStateException e) {
                 Log.e(TAG, String.valueOf(e.getMessage()), e);
