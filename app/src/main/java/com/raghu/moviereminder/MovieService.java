@@ -7,16 +7,22 @@ import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
+import android.support.annotation.Size;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
+import com.raghu.moviereminder.pojos.VenueDetails;
+import com.raghu.moviereminder.pojos.VenueNames;
+import com.raghu.moviereminder.pojos.VenuePojo;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -28,10 +34,10 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -40,32 +46,27 @@ import javax.net.ssl.HttpsURLConnection;
 public class MovieService extends Service {
     private static final int NOTIFICATION_ID = 958;
     private static final String TAG = "MovieService";
-    private static final String HARD_CODED_THEATRE = "INHY";
+
+
+    public static final String ACTION_NOTIFY = "com.raghu.moviereminder.action.notify";
+    public static final String ACTION_FETCH = "com.raghu.moviereminder.action.fetch";
+    public static final String ACTION_STOP = "com.raghu.moviereminder.action.stop";
+    public static final String URL = "com.raghu.moviereminder.extra.url";
+    public static final String THEATRES = "com.raghu.moviereminder.extra.theatre";
+    private static final String jsonParse = "JSON.parse(";
+    public static final String MOVIE_NAME = "com.raghu.moviereminder.movie.name";
 
     public MovieService() {
     }
 
-    private class MovieList extends Binder {
-    }
-
-    private final IBinder iBinder = new MovieList();
-
     @Override
     public IBinder onBind(Intent intent) {
-        return iBinder;
+        return null;
     }
 
-    public static final String ACTION_NOTIFY = "com.raghu.moviereminder.action.notify";
 
-    public static final String ACTION_FETCH = "com.raghu.moviereminder.action.fetch";
 
-    public static final String URL = "com.raghu.moviereminder.extra.url";
-    public static final String THEATRES = "com.raghu.moviereminder.extra.theatre";
-
-    public static final String movieUrl = "https://in.bookmyshow.com/buytickets/paisa-vasool-hyderabad/movie-hyd-ET00058405-MT/20170901";
-    private static final String jsonParse = "JSON.parse(";
-
-    private Set<String> venueSet;
+    private Map<String, VenueDetails> venuePojoMap;
     private Notification.Builder mBuilder;
 
     private NotificationManager notificationManager;
@@ -74,20 +75,29 @@ public class MovieService extends Service {
 
     private ScheduledThreadPoolExecutor executor;
 
+    private String movieName;
+
+    private BroadcastReceiver receiver = new Receiver();
+
     @Override
     public void onCreate() {
         super.onCreate();
         Log.e("Movie", "Service Created");
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        mBuilder = new Notification.Builder(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mBuilder = new Notification.Builder(this, TAG);
+        }
+        else {
+            //noinspection deprecation
+            mBuilder = new Notification.Builder(this);
+        }
         mBuilder.setSmallIcon(R.mipmap.ic_launcher)
                 .setContentText("Fetching")
                 .setContentTitle("Movie Reminder");
-        int corePoolSize = Runtime.getRuntime().availableProcessors();
+        int corePoolSize = 1;
         executor = new ScheduledThreadPoolExecutor(corePoolSize);
         broadcastManager = LocalBroadcastManager.getInstance(this);
         startForeground(NOTIFICATION_ID, mBuilder.build());
-
     }
 
     @Override
@@ -100,51 +110,73 @@ public class MovieService extends Service {
     protected void onHandleIntent(Intent intent) {
         Log.e("Service", "onHandleIntent called");
         if(mBuilder == null) {
-            mBuilder = new Notification.Builder(this);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mBuilder = new Notification.Builder(this, TAG);
+            }
+            else {
+                //noinspection deprecation
+                mBuilder = new Notification.Builder(this);
+            }
         }
         if (intent != null) {
             final String action = intent.getAction();
             if (ACTION_NOTIFY.equals(action)) {
-                final String param1 = intent.getStringExtra(URL);
-                final String param2 = intent.getStringExtra(THEATRES);
-                handleActionNotify(param1, param2);
+                final String movieUrl = intent.getStringExtra(URL);
+                final String theatreCode = intent.getStringExtra(THEATRES);
+                handleActionNotify(movieUrl, theatreCode);
             }
-            else {
-                handleActionNotify(null, null);
+            else if(ACTION_STOP.equals(action)) {
+                executor.getQueue().clear();
+                stopForeground(true);
             }
         }
     }
 
-    /**
-     * Handle action Foo in the provided background thread with the provided
-     * parameters.
-     */
-    private void handleActionNotify(String url, String theatre) {
+    private void handleActionNotify(@NonNull String url, @NonNull@Size(min = 4, max = 4) String theatre) {
         Runnable runnable = new Work(url, theatre);
+        executor.getQueue().clear();
         executor.scheduleWithFixedDelay(runnable, 0, 15, TimeUnit.MINUTES);
+        LocalBroadcastManager.getInstance(this).
+                registerReceiver(receiver, new IntentFilter(ACTION_FETCH));
     }
+
+    @Override
+    public void onDestroy() {
+        LocalBroadcastManager.getInstance(this).
+                unregisterReceiver(receiver);
+        receiver = null;
+        super.onDestroy();
+    }
+
+    private static final String[] MONTH = new String[]{
+            "January", "February", "March",
+            "April", "May", "June",
+            "July", "August", "September",
+            "October", "November", "December"
+    };
 
     private class Work implements Runnable {
         final String url;
         final String theatreCode;
 
-        Work(String url, String theatreCode) {
-            if (url != null) {
-                this.url = url;
-            } else {
-                this.url = movieUrl;
-            }
-            if (theatreCode != null) {
-                this.theatreCode = theatreCode;
-            } else {
-                this.theatreCode = HARD_CODED_THEATRE;
-            }
+        Work(@NonNull String url, @NonNull@Size(max = 4, min = 4) String theatreCode) {
+            this.url = url;
+            this.theatreCode = theatreCode;
+
         }
 
         @Override
         public void run() {
             Log.e(TAG, "Runnable started");
             HttpsURLConnection connection = null;
+            int pos = this.url.lastIndexOf("/");
+            String date = this.url.substring(pos + 1);
+            Log.e(TAG, date);
+            int year = Integer.parseInt(date.substring(0, 4));
+            int month = Integer.parseInt(date.substring(4, 6));
+            int day = Integer.parseInt(date.substring(6));
+            String formattedDate = day + " " + MONTH[month - 1] + ", " + year;
+
             try {
                 connection = (HttpsURLConnection) new URL(this.url).openConnection();
                 connection.setInstanceFollowRedirects(false);
@@ -156,10 +188,18 @@ public class MovieService extends Service {
                 }
 
                 Document document = Jsoup.parse(connection.getInputStream(), "UTF-8", this.url);
+                Elements metas = document.body().getElementsByTag("meta");
+
+                for(Element meta : metas) {
+                    if("name".equals(meta.attr("itemprop"))) {
+                        movieName = meta.attr("content");
+                        movieName = movieName.concat(" - ").concat(formattedDate);
+                    }
+                }
                 Elements body = document.body().getElementsByTag("script");
 
-                if (venueSet != null) {
-                    venueSet.clear();
+                if (venuePojoMap != null) {
+                    venuePojoMap.clear();
                 }
                 for(Element e:body) {
                     parseElement(e);
@@ -173,7 +213,7 @@ public class MovieService extends Service {
                     connection.disconnect();
                 }
                 showInActivity();
-                if(venueSet.contains(theatreCode)) {
+                if(venuePojoMap.containsKey(theatreCode)) {
                     mBuilder.setContentText("Movie booking at " + VenueNames.getTheatreName(theatreCode) + " is now started");
                     playNotificationSound();
                 }
@@ -188,7 +228,7 @@ public class MovieService extends Service {
 
         private void showInActivity() {
             Intent intent = new Intent(MovieService.this, MainActivity.class);
-            ArrayList<String> venueList = new ArrayList<>(venueSet);
+            ArrayList<String> venueList = new ArrayList<>(venuePojoMap.keySet());
             intent.putExtra("theatreList", venueList);
 
             PendingIntent pendingIntent = PendingIntent.getActivity(MovieService.this, 0, intent, 0);
@@ -257,18 +297,32 @@ public class MovieService extends Service {
             if (venuePojos == null) {
                 return;
             }
-            if(venueSet == null) {
-                venueSet = new HashSet<>();
+            if(venuePojoMap == null) {
+                venuePojoMap = new HashMap<>();
             }
             for(VenuePojo vp:venuePojos) {
-                venueSet.add(vp.VenueCode);
+                VenueDetails vd = venuePojoMap.get(vp.VenueCode);
+                if(vd == null) {
+                    vd = new VenueDetails(vp);
+                }
+                else {
+                    vd.addVenueDetails(vp);
+                }
+                venuePojoMap.put(vp.VenueCode, vd);
             }
         }
     }
 
     private void sendResult() {
         Intent intent = new Intent(ACTION_NOTIFY);
-        intent.putExtra("result", new ArrayList<>(venueSet));
+        ArrayList<String> venueCodes = new ArrayList<>(venuePojoMap.keySet());
+        intent.putExtra("result", venueCodes);
+        ArrayList<VenueDetails> pojos = new ArrayList<>(venueCodes.size());
+        for(String code : venueCodes) {
+            pojos.add(venuePojoMap.get(code));
+        }
+        intent.putParcelableArrayListExtra(THEATRES, pojos);
+        intent.putExtra(MOVIE_NAME, movieName);
         broadcastManager.sendBroadcast(intent);
     }
 
@@ -278,9 +332,11 @@ public class MovieService extends Service {
             if(intent == null) {
                 return;
             }
+            if(!ACTION_FETCH.equals(intent.getAction())) {
+                return;
+            }
             String url = intent.getStringExtra(MovieService.URL);
             String theatre = intent.getStringExtra(MovieService.THEATRES);
-            executor.getQueue().clear();
             handleActionNotify(url, theatre);
         }
     }

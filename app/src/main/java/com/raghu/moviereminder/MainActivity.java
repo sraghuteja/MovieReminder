@@ -1,35 +1,48 @@
 package com.raghu.moviereminder;
 
-import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.CardView;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.TextView;
+
+import com.raghu.moviereminder.adapters.MovieListAdapter;
+import com.raghu.moviereminder.fragments.MovieAndTheatreSelection;
+import com.raghu.moviereminder.interfaces.ParameterListener;
+import com.raghu.moviereminder.pojos.VenueDetails;
+import com.raghu.moviereminder.pojos.VenueNames;
+import com.raghu.moviereminder.pojos.VenuePojo;
+import com.raghu.moviereminder.utils.Preferences;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "Activity";
+public class MainActivity extends AppCompatActivity implements ParameterListener {
+    private static final String TAG = "MainActivity";
     private MovieListAdapter adapter;
     private LocalBroadcastManager broadcastManager;
     private BroadcastReceiver receiver;
 
     private ArrayList<String> theatres;
+
+    private String movieUrl;
+    private String theatreCode;
+
+    private DialogFragment fragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,18 +50,25 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         theatres = getIntent().getStringArrayListExtra("theatreList");
 
-        RecyclerView listView = (RecyclerView) findViewById(R.id.listView);
+        RecyclerView listView = findViewById(R.id.listView);
         broadcastManager = LocalBroadcastManager.getInstance(this);
         receiver = new MovieReceiver();
 
-        if(theatres == null) {
+        if (theatres == null) {
             theatres = new ArrayList<>();
         }
+        movieUrl = Preferences.getMovieUrl(this);
+        theatreCode = Preferences.getTheatreCode(this);
 
         adapter = new MovieListAdapter(theatres);
         listView.setAdapter(adapter);
         listView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
 
+        if (TextUtils.isEmpty(movieUrl) || TextUtils.isEmpty(theatreCode)) {
+            getUserInput();
+        } else {
+            fetchData();
+        }
         findViewById(R.id.bms_launch).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -56,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     startActivity(launchIntent);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.e(TAG, "Cannot start activity", e);
                 }
             }
         });
@@ -67,6 +87,22 @@ public class MainActivity extends AppCompatActivity {
                 fetchContents();
             }
         });
+
+        findViewById(R.id.stop).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent stopService = new Intent(MainActivity.this, MovieService.class);
+                stopService.setAction(MovieService.ACTION_STOP);
+                startActivity(stopService);
+            }
+        });
+    }
+
+    private void getUserInput() {
+        if (fragment == null) {
+            fragment = MovieAndTheatreSelection.newInstance(theatreCode, movieUrl);
+        }
+        fragment.show(getSupportFragmentManager(), TAG);
     }
 
     private void fetchContents() {
@@ -77,9 +113,30 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_change_parameters:
+                getUserInput();
+                break;
+        }
+        return true;
+    }
+
+    private void fetchData() {
         Intent serviceIntent = new Intent(this, MovieService.class);
-        serviceIntent.putExtra(MovieService.URL, MovieService.movieUrl);
-        serviceIntent.putExtra(MovieService.THEATRES, "INHY");
+        serviceIntent.setAction(MovieService.ACTION_NOTIFY);
+        serviceIntent.putExtra(MovieService.URL, movieUrl);
+        serviceIntent.putExtra(MovieService.THEATRES, theatreCode);
         startService(serviceIntent);
     }
 
@@ -102,66 +159,54 @@ public class MainActivity extends AppCompatActivity {
         broadcastManager.unregisterReceiver(receiver);
     }
 
+    @Override
+    public void setMovieAndTheatre(@NonNull String movieUrl, @NonNull String theatreCode) {
+        Log.e(TAG, "Url: " + movieUrl);
+        Log.e(TAG, "Theatre: " + VenueNames.getTheatreName(theatreCode));
+        this.movieUrl = movieUrl;
+        this.theatreCode = theatreCode;
+        Preferences.setMovieUrl(this, movieUrl);
+        Preferences.setTheatreCode(this, theatreCode);
+        fetchData();
+    }
+
     class MovieReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Received Broadcast");
             ArrayList<String> arrayList = intent.getStringArrayListExtra("result");
-            Log.d(TAG, "Size of array: " + (arrayList == null?-1:arrayList.size()));
-            if(theatres == null) {
+            if (!theatres.isEmpty()) {
+                theatres.clear();
+            }
+            if(arrayList == null) {
+                return;
+            }
+
+            String movieName = intent.getStringExtra(MovieService.MOVIE_NAME);
+            if(!TextUtils.isEmpty(movieName)) {
+//                setTitle(movieName);
+                setActionBarTitle(movieName);
+            }
+
+            ArrayList<VenueDetails> venues = intent.getParcelableArrayListExtra(MovieService.THEATRES);
+            Log.d(TAG, "Size of array: " + arrayList.size());
+            if (theatres == null) {
                 theatres = new ArrayList<>();
             }
-            Set<String> currentTheatres = new HashSet<>(theatres);
-            for(String string:intent.getStringArrayListExtra("result")) {
-                if(currentTheatres.contains(string)) {
-                    continue;
-                }
+
+            for (String string : arrayList) {
                 theatres.add(string);
             }
+            adapter.setVenues(venues);
             adapter.notifyDataSetChanged();
         }
     }
 
-    private class MovieListAdapter extends RecyclerView.Adapter<ViewHolder> {
-
-        private ArrayList<String> theatres;
-
-        MovieListAdapter(ArrayList<String> theatres) {
-
-            this.theatres = theatres;
+    private void setActionBarTitle(CharSequence title) {
+        ActionBar bar = getSupportActionBar();
+        if(bar == null) {
+            return;
         }
-
-        @Override
-        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            LayoutInflater inflater = LayoutInflater.from(MainActivity.this);
-            View view = inflater.inflate(R.layout.list_element, parent, false);
-            return new ViewHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(ViewHolder holder, int position) {
-            TextView tv = holder.textView;
-            tv.setText(VenueNames.getTheatreName(theatres.get(position)));
-            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) holder.cardView.getLayoutParams();
-            @SuppressLint("RtlHardcoded") int gravity = (position %2 == 0) ? Gravity.LEFT : Gravity.RIGHT;
-            params.gravity = gravity;
-            holder.cardView.setLayoutParams(params);
-        }
-
-        @Override
-        public int getItemCount() {
-            return this.theatres == null? 0 : this.theatres.size();
-        }
-    }
-
-    static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView textView;
-        CardView cardView;
-
-        ViewHolder(View itemView) {
-            super(itemView);
-            textView = (TextView) itemView.findViewById(R.id.list_element_name);
-            cardView = (CardView) itemView.findViewById(R.id.list_element_card);
-        }
+        bar.setTitle(title);
     }
 }

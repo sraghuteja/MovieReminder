@@ -9,23 +9,46 @@
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.raghu.moviereminder.MainActivity">
-    <Button
-        android:id="@+id/bms_launch"
-        android:maxHeight="100dp"
-        android:layout_alignParentBottom="true"
-        android:text="@string/book_ticket"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-    <Button
-        android:id="@+id/refresh"
-        android:text="@string/refresh"
-        android:layout_above="@id/bms_launch"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
     <android.support.v7.widget.RecyclerView
         android:id="@+id/listView"
-        android:layout_above="@id/refresh"
+        android:layout_above="@+id/button_bar"
         android:layout_alignParentTop="true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+    <android.support.v7.widget.ButtonBarLayout
+        android:id="@id/button_bar"
+        android:layout_above="@+id/bms_launch"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/refresh"
+            android:text="@string/refresh"
+            android:background="@color/colorAccent"
+            android:textColor="@color/white"
+            android:layout_weight="1"
+            android:layout_above="@id/bms_launch"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+        <Button
+            android:id="@+id/stop"
+            android:text="@string/stop"
+            android:background="@color/red"
+            android:textColor="@color/white"
+            android:layout_weight="1"
+            android:layout_above="@id/bms_launch"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content" />
+    </android.support.v7.widget.ButtonBarLayout>
+
+    <Button
+        style="@style/Widget.AppCompat.Button.Colored"
+        android:id="@id/bms_launch"
+        android:maxHeight="100dp"
+        android:text="@string/book_ticket"
+        android:layout_alignParentBottom="true"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
 </RelativeLayout>
