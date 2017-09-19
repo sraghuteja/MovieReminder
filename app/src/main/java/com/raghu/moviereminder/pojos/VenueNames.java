@@ -7,8 +7,8 @@ import android.text.TextUtils;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Class to hold all theatre names
@@ -175,6 +175,16 @@ public final class VenueNames {
             }
         }
         return null;
+    }
+
+    public static Map<String, String> getTheatreMap(List<String> theatreCodes) {
+        Map<String, String> returnVal = new HashMap<>(theatreCodes.size(), 1.75f);
+
+        for(String theatreCode : theatreCodes) {
+            returnVal.put(theatreCode, getTheatreName(theatreCode));
+        }
+
+        return returnVal;
     }
 
     @NonNull

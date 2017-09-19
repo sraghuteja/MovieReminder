@@ -6,4 +6,11 @@
         app:showAsAction="ifRoom"
         android:icon="@drawable/ic_mode_edit_white_24dp"
         android:title="@string/change_parameters"/>
+
+    <item
+        android:id="@+id/menu_search"
+        app:showAsAction="ifRoom|collapseActionView"
+        android:icon="@drawable/ic_search_white_24dp"
+        android:title="@string/search"
+        app:actionViewClass="android.support.v7.widget.SearchView" />
 </menu>

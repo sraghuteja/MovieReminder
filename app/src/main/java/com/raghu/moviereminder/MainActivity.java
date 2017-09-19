@@ -12,6 +12,7 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
@@ -24,12 +25,9 @@ import com.raghu.moviereminder.fragments.MovieAndTheatreSelection;
 import com.raghu.moviereminder.interfaces.ParameterListener;
 import com.raghu.moviereminder.pojos.VenueDetails;
 import com.raghu.moviereminder.pojos.VenueNames;
-import com.raghu.moviereminder.pojos.VenuePojo;
 import com.raghu.moviereminder.utils.Preferences;
 
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements ParameterListener {
     private static final String TAG = "MainActivity";
@@ -60,7 +58,7 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
         movieUrl = Preferences.getMovieUrl(this);
         theatreCode = Preferences.getTheatreCode(this);
 
-        adapter = new MovieListAdapter(theatres);
+        adapter = new MovieListAdapter(theatres, theatreCode);
         listView.setAdapter(adapter);
         listView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
 
@@ -93,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
             public void onClick(View view) {
                 Intent stopService = new Intent(MainActivity.this, MovieService.class);
                 stopService.setAction(MovieService.ACTION_STOP);
-                startActivity(stopService);
+                startService(stopService);
             }
         });
     }
@@ -119,6 +117,20 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_activity_menu, menu);
+        MenuItem searchItem = menu.findItem(R.id.menu_search);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                adapter.getFilter().filter(newText);
+                return true;
+            }
+        });
         return true;
     }
 
@@ -167,6 +179,9 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
         this.theatreCode = theatreCode;
         Preferences.setMovieUrl(this, movieUrl);
         Preferences.setTheatreCode(this, theatreCode);
+        if(this.adapter != null) {
+            adapter.setTheatreCode(theatreCode);
+        }
         fetchData();
     }
 

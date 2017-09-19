@@ -77,6 +77,9 @@ public class MovieService extends Service {
 
     private String movieName;
 
+    //The currently running task
+    private Runnable runnable;
+
     private BroadcastReceiver receiver = new Receiver();
 
     @Override
@@ -126,18 +129,28 @@ public class MovieService extends Service {
                 handleActionNotify(movieUrl, theatreCode);
             }
             else if(ACTION_STOP.equals(action)) {
-                executor.getQueue().clear();
+                executor.shutdown();
+
                 stopForeground(true);
             }
         }
     }
 
     private void handleActionNotify(@NonNull String url, @NonNull@Size(min = 4, max = 4) String theatre) {
-        Runnable runnable = new Work(url, theatre);
-        executor.getQueue().clear();
-        executor.scheduleWithFixedDelay(runnable, 0, 15, TimeUnit.MINUTES);
+        if(runnable != null) {
+            executor.remove(runnable);
+        }
+        runnable = new Work(url, theatre);
+        executor.scheduleAtFixedRate(runnable, 0, 5, TimeUnit.MINUTES);
         LocalBroadcastManager.getInstance(this).
                 registerReceiver(receiver, new IntentFilter(ACTION_FETCH));
+
+/*        executor.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                Log.e(TAG, "Testing");
+            }
+        }, 10, 10, TimeUnit.SECONDS);*/
     }
 
     @Override
@@ -145,6 +158,7 @@ public class MovieService extends Service {
         LocalBroadcastManager.getInstance(this).
                 unregisterReceiver(receiver);
         receiver = null;
+        executor.shutdown();
         super.onDestroy();
     }
 
@@ -189,12 +203,10 @@ public class MovieService extends Service {
 
                 Document document = Jsoup.parse(connection.getInputStream(), "UTF-8", this.url);
                 Elements metas = document.body().getElementsByTag("meta");
-
-                for(Element meta : metas) {
-                    if("name".equals(meta.attr("itemprop"))) {
-                        movieName = meta.attr("content");
-                        movieName = movieName.concat(" - ").concat(formattedDate);
-                    }
+                Element meta = metas.get(metas.size() - 1);
+                if("name".equals(meta.attr("itemprop"))) {
+                    movieName = meta.attr("content");
+                    movieName = movieName.concat(" - ").concat(formattedDate);
                 }
                 Elements body = document.body().getElementsByTag("script");
 
@@ -250,7 +262,7 @@ public class MovieService extends Service {
                     @Override
                     public void onCompletion(MediaPlayer mp) {
                         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, currentVolume, AudioManager.FLAG_PLAY_SOUND);
-                        executor.getQueue().clear();
+                        executor.shutdown();
                         stopSelf();
                     }
                 });
