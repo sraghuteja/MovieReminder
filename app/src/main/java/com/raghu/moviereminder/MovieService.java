@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -51,9 +52,10 @@ public class MovieService extends Service {
     public static final String ACTION_NOTIFY = "com.raghu.moviereminder.action.notify";
     public static final String ACTION_FETCH = "com.raghu.moviereminder.action.fetch";
     public static final String ACTION_STOP = "com.raghu.moviereminder.action.stop";
+    private static final String ACTION_STOP_SOUND = "com.raghu.moviereminder.action.stopsound";
     public static final String URL = "com.raghu.moviereminder.extra.url";
     public static final String THEATRES = "com.raghu.moviereminder.extra.theatre";
-    private static final String jsonParse = "JSON.parse(";
+    private static final String jsonParse = "aST_details";
     public static final String MOVIE_NAME = "com.raghu.moviereminder.movie.name";
 
     public MovieService() {
@@ -79,6 +81,8 @@ public class MovieService extends Service {
 
     //The currently running task
     private Runnable runnable;
+
+    private MediaPlayer mediaPlayer;
 
     private BroadcastReceiver receiver = new Receiver();
 
@@ -130,8 +134,10 @@ public class MovieService extends Service {
             }
             else if(ACTION_STOP.equals(action)) {
                 executor.shutdown();
-
                 stopForeground(true);
+            }
+            else if(ACTION_STOP_SOUND.equals(action)) {
+                stopSound();
             }
         }
     }
@@ -141,7 +147,12 @@ public class MovieService extends Service {
             executor.remove(runnable);
         }
         runnable = new Work(url, theatre);
-        executor.scheduleAtFixedRate(runnable, 0, 5, TimeUnit.MINUTES);
+        try {
+            executor.scheduleAtFixedRate(runnable, 0, 5, TimeUnit.MINUTES);
+        } catch (RejectedExecutionException e) {
+            executor = new ScheduledThreadPoolExecutor(1);
+            executor.scheduleAtFixedRate(runnable, 0, 5, TimeUnit.MINUTES);
+        }
         LocalBroadcastManager.getInstance(this).
                 registerReceiver(receiver, new IntentFilter(ACTION_FETCH));
 
@@ -159,7 +170,17 @@ public class MovieService extends Service {
                 unregisterReceiver(receiver);
         receiver = null;
         executor.shutdown();
+        if(mediaPlayer != null) {
+            mediaPlayer.release();
+        }
         super.onDestroy();
+    }
+
+    public void stopSound() {
+        if(mediaPlayer != null && mediaPlayer.isPlaying()) {
+            mediaPlayer.stop();
+            mediaPlayer.release();
+        }
     }
 
     private static final String[] MONTH = new String[]{
@@ -250,9 +271,13 @@ public class MovieService extends Service {
         }
 
         private void playNotificationSound() {
-            MediaPlayer mediaPlayer = MediaPlayer.create(MovieService.this, R.raw.notify);
+
+            mediaPlayer = MediaPlayer.create(MovieService.this, R.raw.notify);
             try {
                 final AudioManager audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+                if(audioManager == null) {
+                    return;
+                }
                 final int currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
                         audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
@@ -266,6 +291,10 @@ public class MovieService extends Service {
                         stopSelf();
                     }
                 });
+                Intent stopSound = new Intent(MovieService.this, MovieService.class);
+                stopSound.setAction(ACTION_STOP_SOUND);
+                PendingIntent stopSoundIntent = PendingIntent.getService(MovieService.this, 32, stopSound, PendingIntent.FLAG_CANCEL_CURRENT);
+                mBuilder.addAction(R.mipmap.ic_launcher, getString(R.string.app_name), stopSoundIntent);
                 mediaPlayer.start();
             } catch (IllegalStateException e) {
                 Log.e(TAG, String.valueOf(e.getMessage()), e);
@@ -279,7 +308,7 @@ public class MovieService extends Service {
             }
             String[] tokens = data.split("\n");
             for(String token:tokens) {
-                parseToken(token);
+                parseToken(token.trim());
             }
         }
 
@@ -290,20 +319,25 @@ public class MovieService extends Service {
 
             String temp = token.trim();
             if (!temp.startsWith("var")) {
+                Log.e(TAG, "Var no found");
                 return;
             }
             int index = temp.indexOf(jsonParse);
-            if (index < 0) {
+            if (index >= 0) {
+                Log.e(TAG, jsonParse + " is found");
+            } else {
                 return;
             }
-            temp = temp.substring(index+jsonParse.length()+1, temp.length()-3).trim();
-            temp = temp.replaceAll("\\\\", "");
+            temp = temp.substring(index+jsonParse.length()+1).trim();
+            int posOfEqual = temp.indexOf("=");
+            temp = temp.substring(posOfEqual+1, temp.length() - 1);
             Gson gson = new Gson();
             List<VenuePojo> venuePojos = null;
 
             try {
                 venuePojos = gson.fromJson(temp, new TypeToken<List<VenuePojo>>(){}.getType());
-            } catch (JsonSyntaxException ignored) {
+            } catch (JsonSyntaxException jsonE) {
+                Log.e(TAG, "Gson error", jsonE);
             }
 
             if (venuePojos == null) {
