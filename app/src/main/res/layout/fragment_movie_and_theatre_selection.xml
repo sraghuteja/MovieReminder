@@ -14,6 +14,30 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
         <TextView
+            android:id="@+id/movie_url_label"
+            android:labelFor="@+id/movie_url_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <EditText
+            android:id="@id/movie_url_text"
+            android:inputType="textUri"
+            android:textIsSelectable="true"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <ImageButton
+            android:id="@+id/theatre_selection_add"
+            android:src="@drawable/ic_add_black_24dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:contentDescription="@string/app_name" />
+        <LinearLayout
+            android:orientation="vertical"
+            android:id="@+id/theatre_selection_holder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <TextView
             android:id="@+id/theatre_selection_label"
             android:text="@string/select_a_theatre"
             android:labelFor="@+id/theatre_selection"
@@ -25,18 +49,6 @@
             android:layout_height="wrap_content"
             android:dropDownHeight="150dp"
             android:dropDownAnchor="@id/theatre_selection_label"/>
-
-        <TextView
-            android:id="@+id/movie_url_label"
-            android:labelFor="@+id/movie_url_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-        <EditText
-            android:id="@id/movie_url_text"
-            android:inputType="textUri"
-            android:textIsSelectable="true"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
 
         <android.support.v7.widget.ButtonBarLayout
             android:orientation="horizontal"

@@ -1,7 +1,8 @@
 package com.raghu.moviereminder.interfaces;
 
 import android.support.annotation.NonNull;
-import android.support.annotation.Size;
+
+import java.util.Set;
 
 /**
  * Interface for getting result from {@link com.raghu.moviereminder.fragments.MovieAndTheatreSelection}
@@ -9,5 +10,5 @@ import android.support.annotation.Size;
  */
 
 public interface ParameterListener {
-    void setMovieAndTheatre(@NonNull String movieUrl, @NonNull@Size(min = 4, max = 4) String theatreCode);
+    void setMovieAndTheatre(@NonNull String movieUrl, Set<String> theatreCode);
 }

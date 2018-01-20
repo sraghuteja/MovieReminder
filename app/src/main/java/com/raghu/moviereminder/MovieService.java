@@ -33,11 +33,14 @@ import java.io.IOException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -129,8 +132,8 @@ public class MovieService extends Service {
             final String action = intent.getAction();
             if (ACTION_NOTIFY.equals(action)) {
                 final String movieUrl = intent.getStringExtra(URL);
-                final String theatreCode = intent.getStringExtra(THEATRES);
-                handleActionNotify(movieUrl, theatreCode);
+                final String[] theatreCode = intent.getStringArrayExtra(THEATRES);
+                handleActionNotify(movieUrl, new HashSet<>(Arrays.asList(theatreCode)));
             }
             else if(ACTION_STOP.equals(action)) {
                 executor.shutdown();
@@ -142,7 +145,7 @@ public class MovieService extends Service {
         }
     }
 
-    private void handleActionNotify(@NonNull String url, @NonNull@Size(min = 4, max = 4) String theatre) {
+    private void handleActionNotify(@NonNull String url, @NonNull Set<String> theatre) {
         if(runnable != null) {
             executor.remove(runnable);
         }
@@ -192,12 +195,11 @@ public class MovieService extends Service {
 
     private class Work implements Runnable {
         final String url;
-        final String theatreCode;
+        final Set<String> theatreCode;
 
-        Work(@NonNull String url, @NonNull@Size(max = 4, min = 4) String theatreCode) {
+        Work(@NonNull String url, @NonNull@Size(max = 4, min = 4) Set<String> theatreCode) {
             this.url = url;
             this.theatreCode = theatreCode;
-
         }
 
         @Override
@@ -246,8 +248,23 @@ public class MovieService extends Service {
                     connection.disconnect();
                 }
                 showInActivity();
-                if(venuePojoMap.containsKey(theatreCode)) {
-                    mBuilder.setContentText("Movie booking at " + VenueNames.getTheatreName(theatreCode) + " is now started");
+                Set<String> intersection = new HashSet<>(venuePojoMap.keySet());
+                intersection.retainAll(theatreCode);
+                if(!intersection.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    boolean first = true;
+                    for(String theatre : intersection) {
+                        if(first) {
+                            first = false;
+                        }
+                        else {
+                            sb.append(",");
+                        }
+                        sb.append(VenueNames.getTheatreName(theatre));
+                    }
+                    String notificationText = sb.toString();
+
+                    mBuilder.setContentText("Movie booking at " + notificationText + " is now started");
                     playNotificationSound();
                 }
                 else {
@@ -382,8 +399,8 @@ public class MovieService extends Service {
                 return;
             }
             String url = intent.getStringExtra(MovieService.URL);
-            String theatre = intent.getStringExtra(MovieService.THEATRES);
-            handleActionNotify(url, theatre);
+            String[] theatre = intent.getStringArrayExtra(THEATRES);
+            handleActionNotify(url, new HashSet<>(Arrays.asList(theatre)));
         }
     }
 }

@@ -24,10 +24,11 @@ import com.raghu.moviereminder.adapters.MovieListAdapter;
 import com.raghu.moviereminder.fragments.MovieAndTheatreSelection;
 import com.raghu.moviereminder.interfaces.ParameterListener;
 import com.raghu.moviereminder.pojos.VenueDetails;
-import com.raghu.moviereminder.pojos.VenueNames;
+import com.raghu.moviereminder.utils.CommonUtils;
 import com.raghu.moviereminder.utils.Preferences;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements ParameterListener {
     private static final String TAG = "MainActivity";
@@ -38,7 +39,7 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
     private ArrayList<String> theatres;
 
     private String movieUrl;
-    private String theatreCode;
+    private Set<String> theatreCode;
 
     private DialogFragment fragment;
 
@@ -62,7 +63,7 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
         listView.setAdapter(adapter);
         listView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
 
-        if (TextUtils.isEmpty(movieUrl) || TextUtils.isEmpty(theatreCode)) {
+        if (TextUtils.isEmpty(movieUrl) || CommonUtils.isCollectionEmpty(theatreCode)) {
             getUserInput();
         } else {
             fetchData();
@@ -148,7 +149,8 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
         Intent serviceIntent = new Intent(this, MovieService.class);
         serviceIntent.setAction(MovieService.ACTION_NOTIFY);
         serviceIntent.putExtra(MovieService.URL, movieUrl);
-        serviceIntent.putExtra(MovieService.THEATRES, theatreCode);
+        serviceIntent.putExtra(MovieService.THEATRES, theatreCode.toArray(new String[theatreCode
+                .size()]));
         startService(serviceIntent);
     }
 
@@ -172,9 +174,9 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
     }
 
     @Override
-    public void setMovieAndTheatre(@NonNull String movieUrl, @NonNull String theatreCode) {
+    public void setMovieAndTheatre(@NonNull String movieUrl, @NonNull Set<String> theatreCode) {
         Log.e(TAG, "Url: " + movieUrl);
-        Log.e(TAG, "Theatre: " + VenueNames.getTheatreName(theatreCode));
+        Log.e(TAG, "Theatre: " + theatreCode);
         this.movieUrl = movieUrl;
         this.theatreCode = theatreCode;
         Preferences.setMovieUrl(this, movieUrl);
@@ -199,7 +201,6 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
 
             String movieName = intent.getStringExtra(MovieService.MOVIE_NAME);
             if(!TextUtils.isEmpty(movieName)) {
-//                setTitle(movieName);
                 setActionBarTitle(movieName);
             }
 
@@ -208,10 +209,7 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
             if (theatres == null) {
                 theatres = new ArrayList<>();
             }
-
-            for (String string : arrayList) {
-                theatres.add(string);
-            }
+            theatres.addAll(arrayList);
             adapter.setVenues(venues);
             adapter.notifyDataSetChanged();
         }

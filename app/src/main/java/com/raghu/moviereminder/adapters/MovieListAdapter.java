@@ -24,6 +24,7 @@ import com.raghu.moviereminder.pojos.VenueNames;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Display list in recycler view
@@ -38,10 +39,10 @@ public class MovieListAdapter extends RecyclerView.Adapter<MovieListAdapter.View
 
     private ArrayList<String> theatres;
     private ArrayList<String> filteredList;
-    private String theatreCode;
+    private Set<String> theatreCode;
     private ArrayList<VenueDetails> venues;
 
-    public MovieListAdapter(ArrayList<String> theatres, String theatreCode) {
+    public MovieListAdapter(ArrayList<String> theatres, Set<String> theatreCode) {
         this.theatres = theatres;
         this.theatreCode = theatreCode;
         this.filteredList = theatres;
@@ -66,7 +67,7 @@ public class MovieListAdapter extends RecyclerView.Adapter<MovieListAdapter.View
         holder.itemView.setTag(position);
         holder.itemView.setOnClickListener(this);
 
-        if(theatre.equals(theatreCode)) {
+        if(theatreCode.contains(theatre)) {
             holder.cardView.setCardElevation(30);
             int bgColor = ContextCompat.getColor(tv.getContext(), R.color.cardview_dark_background);
             holder.cardView.setBackgroundColor(bgColor);
@@ -150,7 +151,7 @@ public class MovieListAdapter extends RecyclerView.Adapter<MovieListAdapter.View
         this.venues = venues;
     }
 
-    public void setTheatreCode(@NonNull String theatreCode) {
+    public void setTheatreCode(@NonNull Set<String> theatreCode) {
         this.theatreCode = theatreCode;
     }
 

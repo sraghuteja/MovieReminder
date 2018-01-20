@@ -19,18 +19,21 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.raghu.moviereminder.MovieService;
 import com.raghu.moviereminder.R;
 import com.raghu.moviereminder.interfaces.ParameterListener;
+import com.raghu.moviereminder.pojos.Venue;
 import com.raghu.moviereminder.pojos.VenueNames;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,7 +48,10 @@ public class MovieAndTheatreSelection extends DialogFragment implements View.OnC
     private EditText movieUrlText;
     private Button submit;
     private ProgressBar progressBar;
+    private LinearLayout theatreTextHolder;
 
+    //List of movies
+    private String[] theatreArray;
 
     public MovieAndTheatreSelection() {
         // Required empty public constructor
@@ -79,9 +85,11 @@ public class MovieAndTheatreSelection extends DialogFragment implements View.OnC
         View view = inflater.inflate(R.layout.fragment_movie_and_theatre_selection, container, false);
 
         theatreText = view.findViewById(R.id.theatre_selection);
-        ArrayList<String> theatreNames = new ArrayList<>(VenueNames.getTheatreNameSet());
-        ArrayAdapter<String> theatreAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, theatreNames);
+        ArrayList<Venue> theatreNames = new ArrayList<>(VenueNames.getTheatreNameSet());
+        ArrayAdapter<Venue> theatreAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, theatreNames);
         theatreText.setAdapter(theatreAdapter);
+        theatreTextHolder = view.findViewById(R.id.theatre_selection_holder);
+        addTheatreBox(inflater);
         movieUrlText = view.findViewById(R.id.movie_url_text);
         progressBar = view.findViewById(R.id.progress_bar);
         submit = view.findViewById(R.id.action_submit);
@@ -99,14 +107,16 @@ public class MovieAndTheatreSelection extends DialogFragment implements View.OnC
         return view;
     }
 
+    private void addTheatreBox(LayoutInflater inflater) {
+        theatreTextHolder.addView(inflater.inflate(R.layout.theatre_add_box, theatreTextHolder,
+                false));
+    }
+
     private void setTextFromArgs() {
         Bundle args = getArguments();
         if(args != null) {
             String movieUrl = args.getString(MovieService.URL);
-            String theatreCode = args.getString(MovieService.THEATRES);
-            if (!TextUtils.isEmpty(theatreCode)) {
-                theatreText.setText(VenueNames.getTheatreName(theatreCode));
-            }
+            theatreArray = args.getStringArray(MovieService.THEATRES);
 
             if (!TextUtils.isEmpty(movieUrl)) {
                 movieUrlText.setText(movieUrl);
@@ -118,6 +128,19 @@ public class MovieAndTheatreSelection extends DialogFragment implements View.OnC
 
     @Override
     public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.action_submit:
+                onSubmitClick();
+                break;
+            case R.id.theatre_selection_add:
+                LayoutInflater inflater = LayoutInflater.from(view.getContext());
+                addTheatreBox(inflater);
+                break;
+        }
+
+    }
+
+    private void onSubmitClick() {
         String movie = movieUrlText.getText().toString();
         if(TextUtils.isEmpty(movie)) {
             movieUrlText.setError(getString(R.string.error_text_blank));
@@ -135,10 +158,11 @@ public class MovieAndTheatreSelection extends DialogFragment implements View.OnC
         new CheckValidUrl(movie, theatreCode).execute();
     }
 
-    public static DialogFragment newInstance(String theatreCode, String movieUrl) {
+    public static DialogFragment newInstance(Set<String> theatreCode, String movieUrl) {
         DialogFragment fragment = new MovieAndTheatreSelection();
         Bundle bundle = new Bundle();
-        bundle.putString(MovieService.THEATRES, theatreCode);
+        bundle.putStringArray(MovieService.THEATRES, theatreCode.toArray(new String[theatreCode
+                .size()]));
         bundle.putString(MovieService.URL, movieUrl);
         fragment.setArguments(bundle);
         return fragment;
@@ -146,9 +170,9 @@ public class MovieAndTheatreSelection extends DialogFragment implements View.OnC
 
     private class CheckValidUrl extends AsyncTask<Void, Void, Integer> {
         private String movieUrl;
-        private String theatre;
+        private Set<String> theatre;
 
-        CheckValidUrl(String movieUrl, String theatre) {
+        CheckValidUrl(String movieUrl, Set<String> theatre) {
             this.movieUrl = movieUrl;
             this.theatre = theatre;
         }
