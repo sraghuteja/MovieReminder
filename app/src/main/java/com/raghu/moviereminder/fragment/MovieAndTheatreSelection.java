@@ -1,4 +1,4 @@
-package com.raghu.moviereminder.fragments;
+package com.raghu.moviereminder.fragment;
 
 
 import android.app.Activity;
@@ -24,8 +24,8 @@ import android.widget.Toast;
 
 import com.raghu.moviereminder.MovieService;
 import com.raghu.moviereminder.R;
-import com.raghu.moviereminder.interfaces.ParameterListener;
-import com.raghu.moviereminder.pojos.VenueNames;
+import com.raghu.moviereminder.action.ParameterListener;
+import com.raghu.moviereminder.pojo.VenueNames;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;

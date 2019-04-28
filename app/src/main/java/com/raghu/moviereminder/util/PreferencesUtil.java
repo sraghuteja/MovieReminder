@@ -1,14 +1,14 @@
-package com.raghu.moviereminder.utils;
+package com.raghu.moviereminder.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 
 /**
- * Wrapper for accessing Shared Preferences
+ * Wrapper for accessing Shared PreferencesUtil
  * Created by sragh_000 on 018 18/09/2017.
  */
 
-public class Preferences {
+public class PreferencesUtil {
     private static final String PREF = "movieReminder";
 
     private static final String KEY_THEATRE = "theatre";

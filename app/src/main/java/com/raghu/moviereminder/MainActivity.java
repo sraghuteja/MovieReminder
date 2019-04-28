@@ -20,12 +20,12 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 
-import com.raghu.moviereminder.adapters.MovieListAdapter;
-import com.raghu.moviereminder.fragments.MovieAndTheatreSelection;
-import com.raghu.moviereminder.interfaces.ParameterListener;
-import com.raghu.moviereminder.pojos.VenueDetails;
-import com.raghu.moviereminder.pojos.VenueNames;
-import com.raghu.moviereminder.utils.Preferences;
+import com.raghu.moviereminder.adapter.MovieListAdapter;
+import com.raghu.moviereminder.fragment.MovieAndTheatreSelection;
+import com.raghu.moviereminder.action.ParameterListener;
+import com.raghu.moviereminder.pojo.VenueDetails;
+import com.raghu.moviereminder.pojo.VenueNames;
+import com.raghu.moviereminder.util.PreferencesUtil;
 
 import java.util.ArrayList;
 
@@ -55,8 +55,8 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
         if (theatres == null) {
             theatres = new ArrayList<>();
         }
-        movieUrl = Preferences.getMovieUrl(this);
-        theatreCode = Preferences.getTheatreCode(this);
+        movieUrl = PreferencesUtil.getMovieUrl(this);
+        theatreCode = PreferencesUtil.getTheatreCode(this);
 
         adapter = new MovieListAdapter(theatres, theatreCode);
         listView.setAdapter(adapter);
@@ -177,8 +177,8 @@ public class MainActivity extends AppCompatActivity implements ParameterListener
         Log.e(TAG, "Theatre: " + VenueNames.getTheatreName(theatreCode));
         this.movieUrl = movieUrl;
         this.theatreCode = theatreCode;
-        Preferences.setMovieUrl(this, movieUrl);
-        Preferences.setTheatreCode(this, theatreCode);
+        PreferencesUtil.setMovieUrl(this, movieUrl);
+        PreferencesUtil.setTheatreCode(this, theatreCode);
         if(this.adapter != null) {
             adapter.setTheatreCode(theatreCode);
         }

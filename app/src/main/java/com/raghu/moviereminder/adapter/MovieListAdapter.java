@@ -1,4 +1,4 @@
-package com.raghu.moviereminder.adapters;
+package com.raghu.moviereminder.adapter;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -19,8 +19,8 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import com.raghu.moviereminder.R;
-import com.raghu.moviereminder.pojos.VenueDetails;
-import com.raghu.moviereminder.pojos.VenueNames;
+import com.raghu.moviereminder.pojo.VenueDetails;
+import com.raghu.moviereminder.pojo.VenueNames;
 
 import java.util.ArrayList;
 import java.util.Map;

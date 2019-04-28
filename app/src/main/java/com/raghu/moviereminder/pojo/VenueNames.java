@@ -1,4 +1,4 @@
-package com.raghu.moviereminder.pojos;
+package com.raghu.moviereminder.pojo;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
